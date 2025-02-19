@@ -65,3 +65,6 @@ Inputs:
 
 Outputs:
 - A ranked list of genes
+
+## Tutorial
+A sample workthrough using this package is available in this repository, called easydars_tutorial.Rmd
