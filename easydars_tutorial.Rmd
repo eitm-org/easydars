@@ -6,7 +6,7 @@ You can follow along with this tutorial by git cloning the eitm-org/metastatic-n
 First, run this chunk to install the package. 
 ```{r}
 library(devtools)
-devtools::install_github("eitm-org/metastatic-niche-DE", subdir="easydars")
+devtools::install_github("eitm-org/easydars")
 library(easydars)
 ```
 
