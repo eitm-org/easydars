@@ -96,7 +96,7 @@ Now, let's make a volcano plot, which has the log2fold change on the x axis, and
 - the name of your comparison (ie."organoids_cell_line_MT3B_vs_MM1")
 - the names of the groups you are comparing (ie. "MT3B" and "MM1")
 You will also need to specify your shrinkage method (apeglm and ashr are recommended). 
-```{r, fig. height = 20}
+```{r, fig.height = 20}
 organoids_cell_line_MT3B_vs_MM1_volcanoplot <- DE_table_volcano(count_df = count_df,
                                                                 dds = org_DEs,
                                                                 res = res,
