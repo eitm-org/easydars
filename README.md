@@ -8,63 +8,57 @@ library(devtools)
 devtools::install_github("eitm-org/easydars")
 library(easydars)
 ```
-
 ## Usage
-### `DE_pca`
-Inputs:
-- dds: DESeq dataset
-- xvar: Coefficient or design of experiment (column in metadata)
-- top_n: Number of top features to use (default 500)
-- PC_of_interest_x: PC to be on x axis (default 1)
-- PC_of_interest_y: PC to be on y axis (default 2)
-  
-Outputs:
-- A principal component analysis plot 
+A full length tutorial can be found on this repo, titled easydars_tutorial.Rmd'
 
-### `DE_volcano`
-Inputs:
-- count_df: RNA Seq raw counts dataframe, including columns gene_id and gene_name
-- dds: DESeq dataset
-- res: DESeq2 results (after running results() on DESeq dataset)
-- shrinkage_method: Shrinkage method (apeglm, ashr, or normal)
-- xvar: Coefficient or design of experiment
-- name_of_comparison: Name of comparison (column in metadata)
-- first_group: Name of first group of comparison
-- second_group: Name of second group of comparison
-  
-Outputs:
-- A volcano plot
+# DE_PCA
+```
+# returns Principal Component Analysis Plot from DESeq dataset and experimental design coefficient
+DE_pca(dds = genotype_DEs, xvar = "sample_genotype")
+```
+# DE_table_volcano
+```
+# returns a volcano plot 
+DE_table_volcano(count_df = count_df,
+                 dds = genotype_DEs,
+                 res = res,
+                 shrinkage_method = "apeglm",
+                 xvar = "sample_genotype",
+                 name_of_comparison = "sample_genotype_WT_vs_KO",
+                 first_group = "WT",
+                 second_group = "KO"
+                                                                )
+```
+# DE_heat_map
+```
+# returns a heat map of top 10 DE genes
+DE_heat_map(count_df = count_df,
+            col_data = col_data,
+            dds = genotype_DEs,
+            res = res,
+            xvar = "sample_genotype",
+            name_of_comparison = "sample_genotype_WT_vs_KO",
+            top_n = 10
+                                                             )
 
-### `DE_heat_map`
-Inputs:
-- count_df: RNA Seq raw counts dataframe, including columns gene_id and gene_name
-- col_data: Column data (sample metadata)
-- dds: DESeq dataset
-- res: DESeq2 results (after running results() on DESeq dataset)
-- xvar: Coefficient or design of experiment
-- name_of_comparison: Name of comparison
-- top_n: Number of genes to plot (default 50)
-- genes_of_interest: List of genes of interest (default none)
-  
-Outputs: 
-- A heat map
-
-### `prepare_gmt`
-Inputs:
-- gmt_file: gmt files containing genes sets
-- genes_in_data: A list of genes present in the data
-
-Outputs:
-- A prepared .gmt file
-
-### `prepare_rankings`
-Inputs:
-- log2foldchange: Log2 fold change of genes
-- pvalues: P values of genes
-- row_names: Gene names
-
-Outputs:
-- A ranked list of genes
-
-## Tutorial
-A sample workthrough using this package is available in this repository, called easydars_tutorial.Rmd
+# returns a heat map of genes of interest
+genes_of_interest = c("Prex1","Lrp3","Tspan6", "Mical1")
+DE_heat_map(count_df = count_df,
+            col_data = col_data,
+            dds = genotype_DEs,
+            res = res,
+            xvar = "sample_genotype",
+            name_of_comparison = "sample_genotype_WT_vs_KO",
+            genes_of_interest = genes_of_interest
+                                                             )
+```
+# prepare_rankings
+```
+# prepares a ranked list of genes for fgsea
+prepare_rankings(log2foldchange = fc, pvalues = p_val, row_names = rownames)
+```
+# prepare_gmt
+```
+# prepares gmt files to be used in fgsea
+pathways <- prepare_gmt(gmt_file = gmt_file, genes_in_data = my_genes)
+```
