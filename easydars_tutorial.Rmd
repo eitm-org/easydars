@@ -1,9 +1,8 @@
 
-Hello! This is a tutorial on how to use easydars, which is meant to conduct downstream analysis of bulk RNA sequencing data, including heatmaps, volcano plots, and preparing gmt (gene matrix transposed) files and rankings for fast gene set enrichment analysis (fgsea). 
+Hello! This is a tutorial on how to use the package easydars, which is meant to conduct downstream analysis of bulk RNA sequencing data, including heatmaps, volcano plots, and preparing gmt (gene matrix transposed) files and rankings for fast gene set enrichment analysis (fgsea). 
 
-You can follow along with this tutorial by git cloning the eitm-org/metastatic-niche-DE repository onto your desktop, and changing the paths below, so that you can load the same data too! 
+First, run this chunk to install the package. This also downloads the test data files I use in this tutorial. 
 
-First, run this chunk to install the package. 
 ```{r}
 library(devtools)
 devtools::install_github("eitm-org/easydars")
@@ -21,54 +20,63 @@ library(janitor)
 library(tidyverse)
 library(purrr)
 library(fgsea)
+library(org.Mm.eg.db) # genome wide annotations for mouse - replace if using human data (needed for gene ID to name mapping)
 ```
 
-Next, let's load in our data. The first form of data we need is counts data, which has the raw counts of each gene. In this example, the first two columns are gene id's and gene names, and the other columns are samples. These sample columns contain the raw RNA counts for each gene. We can use clean_names to make sure names in the dataframe have unique names and only contain characters, numbers, and letters. 
+Next, let's load in our data. The first form of data we need is counts data, which has the raw counts of each gene. In this example, the first column contains gene IDs, and the other columns are samples. These sample columns contain the raw RNA counts for each gene. We can use clean_names to make sure names in the dataframe have unique names and only contain characters, numbers, and letters. 
 ```{r}
-count_df <- read.table(file = "/Users/eli/Desktop/metastatic-niche-DE/data/salmon.merged.gene_counts_length_scaled.tsv", header = TRUE) %>%
+count_df <- read.table(system.file("extdata","Condition_genotype-WT-KO-batch.normalised_counts.tsv", package = "easydars"), header = TRUE) %>%
   clean_names()
 ```
 
-The next data we need is col data, which contains metadata about each sample.
+This dataset only contains gene IDs, but we are interested in gene names as well. We can use the mouse genome wide annotations to map our existing gene IDs to their corresponding gene names (keeping the gene ID if there is no matching name). This step can be skipped if counts data already includes gene_id and gene_name columns.
 ```{r}
-col_data0 <- read_csv(file = "/Users/eli/Desktop/metastatic-niche-DE/data/mp_rna_seq_metadata_052224.csv",
-                      show_col_types = FALSE
-                      ) %>% 
+ens <- count_df$gene_id
+symbols <- mapIds(org.Mm.eg.db, keys = ens,
+                  column = 'SYMBOL', keytype = 'ENSEMBL')
+symbols <- symbols[!is.na(symbols)]
+symbols <- symbols[match(count_df$gene_id, names(symbols))]
+count_df$gene_name <- symbols
+count_df$gene_name <- ifelse(is.na(count_df$gene_name), count_df$gene_id, count_df$gene_name)
+```
+
+The next data we need is col data, which contains metadata about each sample. 
+Here, I take my sample identifier, the column sample_names, and turn it into the rownames of the column. 
+```{r}
+col_data <- read.csv(system.file("extdata","Condition_genotype-WT-KO-metadata.csv", package = "easydars")) %>%
   clean_names()
+rownames(col_data) <- col_data$sample_names
+col_data <- col_data %>%
+  dplyr::select(-sample_names)
 ```
 
-Select your column of interest from your col data, which is the variable you want to compare in your differential expression analysis. In this case, I am looking at organoids_cell_line. 
-```{r}
-col_data_org <- col_data0 %>%
-  dplyr::select(eit_id, organoids_cell_line)
-```
-
-We must make sure that the number of columns of our counts data is equal to the number of rows in our col data. Right now, our count_df has two extra columns: gene_id and gene_name. We can fix that by making gene_id into row names, and dropping gene_name. Keep the original count_df, as it will be useful later for mapping gene IDs with their corresponding names. 
+We must make sure that the number of columns of our counts data is equal to the number of rows in our col data, a.k.a. we have the same number of samples in both. Right now, our count_df has two extra columns: gene_id and gene_name. We can fix that by making gene_id into row names, and dropping gene_name. Keep the original count_df, as it will be useful later when we need to make plots with our gene names. 
 ```{r}
 count_mat <- count_df %>% 
   column_to_rownames(var = "gene_id") %>%
-  clean_names() %>%
-  dplyr::select(-gene_name)
+  dplyr::select(-gene_name) %>%
+  clean_names() 
 ```
 
-Next, we can run differential expression analysis using DESeq2. First, we make the dataset with DESeqDataSetFromMatrix(). countData is the dataframe of our raw counts with the modified columns (count_mat), colData is our metadata (col_data_org), and design will be ~ followed by the column of col_data_org we are interested in (organoids_cell_line). Then, we can run that dataset in DESeq(). 
+Next, we can run differential expression analysis using DESeq2. First, we make the dataset with DESeqDataSetFromMatrix(). countData is the dataframe of our raw counts with the modified columns (count_mat), colData is our metadata (col_data), and design will be ~ followed by the column of col_data we are interested in (in this case, I chose sample_genotype). Then, we can run that dataset in DESeq(). 
 ```{r}
-org_dds <- DESeqDataSetFromMatrix(countData = round(count_mat),
-                              colData = col_data_org,
-                              design = ~ organoids_cell_line)
-org_DEs <- DESeq(org_dds)
+genotype_dds <- DESeqDataSetFromMatrix(countData = round(count_mat),
+                              colData = col_data,
+                              design = ~ sample_genotype)
+genotype_DEs <- DESeq(genotype_dds)
 ```
 
 Great! Now that we've run DESeq2, we can use resultsNames(), which will output the estimated effects (coefficients) of our design. 
 ```{r}
-resultsNames(org_DEs)
+resultsNames(genotype_DEs)
 ```
+resultsNames() outputted "sample_genotype_WT_vs_KO" - this is the estimated effects of our design, examining differential expression between two genotypes, WT and KO. 
 
-Next, lets extract a results table from our DESeq analysis, which will contain base means, log2fold changes, p-vals, adjusted p-vals, among other things. Input the DESeq dataset (ie. org_DEs) and your coefficient (ie. name = "organoids_cell_line_MT3B_vs_MM1). You can specify a number of parameters here. For the method for adjusting p-values, we will use the Benjamini-Hochberg procedure (pAdjustMethod = "BH"), a significance cutoff (alpha) of 0.05, and independent filtering. 
+Next, lets extract a results table from our DESeq analysis, which will contain base means, log2fold changes, p-vals, adjusted p-vals, among other things. Input the DESeq dataset (ie. genotype_DEs) and your coefficient (ie. name = "sample_genotype_WT_vs_KO"). You can specify a number of parameters here. For the method for adjusting p-values, we will use the Benjamini-Hochberg procedure (pAdjustMethod = "BH"), a significance cutoff (alpha) of 0.05, and independent filtering. 
 ```{r}
-res <- results(org_DEs,
+res <- results(genotype_DEs,
                pAdjustMethod = "BH",  
-               name = "organoids_cell_line_MT3B_vs_MM1",  
+               name = "sample_genotype_WT_vs_KO",  
                alpha = 0.05,          
                independentFiltering = TRUE)
 ```
@@ -77,105 +85,100 @@ Now we have all the inputs we need to use easydars!
 
 Let's start by making a Principal Component Analysis (PCA) plot to visualize our groups. The inputs you need are:
 - the DESeq dataset (ie. org_DEs)
-- the name of your coefficient/design of experiment (ie. "organoids_cell_line)
+- the name of your coefficient/design of experiment (ie. "sample_genotype")
 - the number of top features to use (default 500)
 - the PC to be on x-axis (default 1)
 - the PC to be on y-axis (default 2)
 ```{r}
-organoids_cell_line_MT3B_vs_MM1_PCA <- DE_pca(dds = org_DEs, 
-                                              xvar = "organoids_cell_line"
-                                              )
-print(organoids_cell_line_MT3B_vs_MM1_PCA)
+genotype_PCA <- DE_pca(dds = genotype_DEs, 
+                  xvar = "sample_genotype")
+print(genotype_PCA)
 ```
 
 Now, let's make a volcano plot, which has the log2fold change on the x axis, and the -log(p-adjusted value) on the y axis. The inputs you need are:
 - the counts data that contains both a gene_name and gene_id column (ie. count_df)
-- the DESeq dataset (ie. org_DEs)
+- the DESeq dataset (ie. genotype_DEs)
 - the results table that we just made above (ie. res)
-- the coefficient or design of your experiment (ie. "organoids_cell_line")
-- the name of your comparison (ie."organoids_cell_line_MT3B_vs_MM1")
-- the names of the groups you are comparing (ie. "MT3B" and "MM1")
-You will also need to specify your shrinkage method (apeglm and ashr are recommended). 
-```{r, fig.height = 20}
-organoids_cell_line_MT3B_vs_MM1_volcanoplot <- DE_table_volcano(count_df = count_df,
-                                                                dds = org_DEs,
-                                                                res = res,
-                                                                shrinkage_method = "apeglm",
-                                                                xvar = "organoids_cell_line",
-                                                                name_of_comparison = "organoids_cell_line_MT3B_vs_MM1",
-                                                                first_group = "MT3B",
-                                                                second_group = "MM1"
+- the shrinkage method (apeglm and ashr are recommended)
+- the coefficient or design of your experiment (ie. "sample_genotype")
+- the name of your comparison (ie."sample_genotype_WT_vs_KO")
+- the names of the groups you are comparing (ie. "WT" and "KO")
+```{r, fig.height = 8, fig.width = 15}
+genotype_volcanoplot <- DE_table_volcano(count_df = count_df,
+                                    dds = genotype_DEs,
+                                    res = res,
+                                    shrinkage_method = "apeglm",
+                                    xvar = "sample_genotype",
+                                    name_of_comparison = "sample_genotype_WT_vs_KO",
+                                    first_group = "WT",
+                                    second_group = "KO"
                                                                 )
-                                                         
-print(organoids_cell_line_MT3B_vs_MM1_volcanoplot)
+print(genotype_volcanoplot)
 ```
+
 You can also extract the top differentially expressed genes (those with the lowest p-adjusted values)
 ```{r}
-DE_genes <- organoids_cell_line_MT3B_vs_MM1_volcanoplot$de_genes
+DE_genes <- genotype_volcanoplot$de_genes
 print(DE_genes)
 ```
 
 Next, we can make a heatmap. The inputs you need are:
 - the results table that we just made above (ie. res)
-- the DESeq dataset (ie. org_DEs)
-- the col data aka the sample metadata (ie. col_data_org)
+- the DESeq dataset (ie. genotype_DEs)
+- the col data aka the sample metadata (ie. col_data)
 - the counts data that contains both a gene_name and gene_id column (ie. count_df)
-- the coefficient or design of your experiment (ie. "organoids_cell_line")
-- the name of your comparison (ie."organoids_cell_line_MT3B_vs_MM1")
-By default, the heatmap will show the top 50 genes with the lowest p-adjusted values. You can specify how many genes you want to be displayed by adjusting the top_n parameter. In this example, I chose 15. 
+- the coefficient or design of your experiment (ie. "sample_genotype")
+- the name of your comparison (ie."sample_genotype_WT_vs_KO")
+By default, the heatmap will show the top 50 genes with the lowest p-adjusted values. You can specify how many genes you want to be displayed by adjusting the top_n parameter. In this example, I chose 10. 
 ```{r}
-organoids_cell_line_MT3B_vs_MM1_heatmap_top15 <- DE_heat_map(count_df = count_df,
-                                                             col_data = col_data_org,
-                                                             dds = org_DEs,
+genotype_heatmap_top10 <- DE_heat_map(count_df = count_df,
+                                                             col_data = col_data,
+                                                             dds = genotype_DEs,
                                                              res = res,
-                                                             xvar = "organoids_cell_line",
-                                                             name_of_comparison = "organoids_cell_line_MT3B_vs_MM1",
-                                                             top_n = 15
+                                                             xvar = "sample_genotype",
+                                                             name_of_comparison = "sample_genotype_WT_vs_KO",
+                                                             top_n = 10
                                                              )
-print(organoids_cell_line_MT3B_vs_MM1_heatmap_top15)
+print(genotype_heatmap_top10)
 ```
 
 You can also specify genes names of interest to be displayed on the heatmap.
 ```{r}
-genes_of_interest = c("Tnf", "Fbp2", "Dlx3", "Fer")
-organoids_cell_line_MT3B_vs_MM1_heatmap_genes_of_interest <- DE_heat_map(count_df = count_df,
-                                                             col_data = col_data_org,
-                                                             dds = org_DEs,
+genes_of_interest = c("Prex1","Lrp3","Tspan6", "Mical1")
+genotype_heatmap_genes_of_interest <- DE_heat_map(count_df = count_df,
+                                                             col_data = col_data,
+                                                             dds = genotype_DEs,
                                                              res = res,
-                                                             name_of_comparison = "organoids_cell_line_MT3B_vs_MM1",
+                                                             xvar = "sample_genotype",
+                                                             name_of_comparison = "sample_genotype_WT_vs_KO",
                                                              genes_of_interest = genes_of_interest
                                                              )
-print(organoids_cell_line_MT3B_vs_MM1_heatmap_genes_of_interest)
+print(genotype_heatmap_genes_of_interest)
 ```
 Yay! Now, we can prepare to run fast gene set enrichment analysis (fgsea). We can use information that we previously extracted in the volcano plot function. Specifically, we need the log2fold changes, p values (not adjusted p-values, which are discrete variables, as this could lead to ranking ties), gene_names, all of which can be found in the shrunken results table automatically generate from the DE_table_volcano function. These are all the inputs you need to generate a ranked list of genes with the prepare_rankings function! 
 ```{r}
-fc <- organoids_cell_line_MT3B_vs_MM1_volcanoplot$res_shrink$log2FoldChange
-p_val <- organoids_cell_line_MT3B_vs_MM1_volcanoplot$res_shrink$pvalue
-rownames <- organoids_cell_line_MT3B_vs_MM1_volcanoplot$res_shrink$gene_name
+fc <- genotype_volcanoplot$res_shrink$log2FoldChange
+p_val <- genotype_volcanoplot$res_shrink$pvalue
+rownames <- genotype_volcanoplot$res_shrink$gene_name
 
 rankings <- prepare_rankings(log2foldchange = fc, pvalues = p_val, row_names = rownames)
 print(rankings)
 ```
 
-With the ranked genes, we are one step closer to being able to run fgsea! Next, we need to prepare our gmt files,containing gene sets.
-First, we can extract a list of gene names from our counts data. Then, list out all the .gmt files you would like to prepare. 
+With the ranked genes, we are one step closer to being able to run fgsea! Next, we need to prepare our gmt files, containing gene sets. First, we can extract a list of gene names from our counts data. Then, select the .gmt files you would like to prepare. Make sure the list of genes is uppercase if it isn't already. 
 ```{r}
-my_genes <- count_df$gene_name
-gmt_files <- list.files("/Users/eli/Desktop/metastatic-niche-DE/data/cell_type", pattern = ".gmt", full.names = TRUE)
+my_genes <- toupper(count_df$gene_name)
+gmt_file <- system.file("extdata","mh.all.v2022.1.Mm.symbols.gmt", package = "easydars")
 ```
 
-Next, we can use the map() function to apply the prepare_gmt function to all the gmt files we have. 
+Next, we can use the prepare_gmt function, which take in our gmt_file path (gmt_file), along with our list of gene names from count_df (my_genes). 
 ```{r}
-all_gmt_files <- map(gmt_files, prepare_gmt, my_genes, savefile = TRUE)
+pathways <- prepare_gmt(gmt_file, my_genes)
 ```
 
-All that's left to do is run fgsea! Using the map() function again, we can run fgsea() on every gmt file that we prepared! The other parameters for fgsea() are stats, which are the rankings we created using the prepare_rankings function above, 
+All that's left to do is run fgsea! The parameters of fgsea are a list of gene sets to check (pathways) and a named vector of gene-level stats with the same names as our gene sets (we just created this with our prepare_rankings function, rankings).
 ```{r}
-organoids_cell_line_MT3B_vs_MM1_fgsea_res <- map(
-               all_gmt_files,
-               fgsea,
-               stats = rankings,
-)
-print(organoids_cell_line_MT3B_vs_MM1_fgsea_res)
+genotype_fgsea_res <- fgsea(pathways, rankings)
+print(genotype_fgsea_res)
 ```
 
