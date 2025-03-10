@@ -1,0 +1,25 @@
+﻿sample_names,sample_genotype,sample_treatment,source_names,condition_time,batch
+sample1,WT,control,WT; Control; 1H,1H,b1
+sample2,WT,control,WT; Control; 1H,1H,b1
+sample3,WT,control,WT; Control; 1H,1H,b1
+sample4,WT,control,WT; Control; 16H,16H,b2
+sample5,WT,control,WT; Control; 16H,16H,b2
+sample6,WT,control,WT; Control; 16H,16H,b2
+sample7,WT,treated,WT; Control; 1H,1H,b1
+sample8,WT,treated,WT; Control; 1H,1H,b3
+sample9,WT,treated,WT; Control; 1H,1H,b3
+sample10,WT,treated,WT; Control; 16H,16H,b1
+sample11,WT,treated,WT; Control; 16H,16H,b1
+sample12,WT,treated,WT; Control; 16H,16H,b1
+sample13,KO,control,KO ; Control ; 1H,1H,b1
+sample14,KO,control,KO ; Control ; 1H,1H,b2
+sample15,KO,control,KO ; Control ; 1H,1H,b1
+sample16,KO,control,KO ; Control ; 16H,16H,b3
+sample17,KO,control,KO ; Control ; 16H,16H,b3
+sample18,KO,control,KO ; Control ; 16H,16H,b1
+sample19,KO,treated,KO ; Treated ; 1H,1H,b1
+sample20,KO,treated,KO ; Treated ; 1H,1H,b1
+sample21,KO,treated,KO ; Treated ; 1H,1H,b3
+sample22,KO,treated,KO; Treated; 16H,16H,b3
+sample23,KO,treated,KO; Treated; 16H,16H,b3
+sample24,KO,treated,KO; Treated; 16H,16H,b2
