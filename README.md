@@ -9,15 +9,16 @@ devtools::install_github("eitm-org/easydars")
 library(easydars)
 ```
 ## Usage
-A full length tutorial can be found on this repo, titled easydars_tutorial.Rmd'
+Before running the functions, differential expression analysis through the DESeq2 package must be run on raw RNA counts data containing gene_id and gene_name columns, and sample metadata. 
+A full length tutorial, including data loading and differential expression analysis steps, can be found on this repository, titled easydars_tutorial.Rmd
 
-# DE_PCA
+### DE_PCA
 ```
-# returns Principal Component Analysis Plot from DESeq dataset and experimental design coefficient
+# returns a principal component analysis plot
 DE_pca(dds = genotype_DEs, xvar = "sample_genotype")
 ```
 ![PCA Plot](/sample_plots/easydars_PCA.png "PCA")
-# DE_table_volcano
+### DE_table_volcano
 ```
 # returns a volcano plot 
 DE_table_volcano(count_df = count_df,
@@ -31,7 +32,7 @@ DE_table_volcano(count_df = count_df,
                                                                 )
 ```
 ![Volcano Plot](/sample_plots/easydars_VolcanoPlot.png "Volcano Plot")
-# DE_heat_map
+### DE_heat_map
 ```
 # returns a heat map of top 10 DE genes
 DE_heat_map(count_df = count_df,
@@ -56,12 +57,12 @@ DE_heat_map(count_df = count_df,
 ```
 ![Heatmap](/sample_plots/easydars_top10HeatMap.png "Heatmap")
 ![Heatmap](/sample_plots/easy_dars_genesHeatMap.png "Heatmap")
-# prepare_rankings
+### prepare_rankings
 ```
 # prepares a ranked list of genes for fgsea
 prepare_rankings(log2foldchange = fc, pvalues = p_val, row_names = rownames)
 ```
-# prepare_gmt
+### prepare_gmt
 ```
 # prepares gmt files to be used in fgsea
 pathways <- prepare_gmt(gmt_file = gmt_file, genes_in_data = my_genes)
