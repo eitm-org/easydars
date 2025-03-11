@@ -16,6 +16,7 @@ A full length tutorial can be found on this repo, titled easydars_tutorial.Rmd'
 # returns Principal Component Analysis Plot from DESeq dataset and experimental design coefficient
 DE_pca(dds = genotype_DEs, xvar = "sample_genotype")
 ```
+![PCA Plot](/sample_plots/easydars_PCA.png "PCA")
 # DE_table_volcano
 ```
 # returns a volcano plot 
@@ -29,6 +30,7 @@ DE_table_volcano(count_df = count_df,
                  second_group = "KO"
                                                                 )
 ```
+![Volcano Plot](/sample_plots/easydars_VolcanoPlot.png "Volcano Plot")
 # DE_heat_map
 ```
 # returns a heat map of top 10 DE genes
@@ -52,6 +54,8 @@ DE_heat_map(count_df = count_df,
             genes_of_interest = genes_of_interest
                                                              )
 ```
+![Heatmap](/sample_plots/easydars_top10HeatMap.png "Heatmap")
+![Heatmap](/sample_plots/easy_dars_genesHeatMap.png "Heatmap")
 # prepare_rankings
 ```
 # prepares a ranked list of genes for fgsea
